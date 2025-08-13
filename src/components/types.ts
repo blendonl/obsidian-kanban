@@ -81,12 +81,12 @@ export interface ItemData {
   blockId?: string;
   checked: boolean;
   checkChar: string;
-  title: string;
   titleRaw: string;
   titleSearch: string;
   titleSearchRaw: string;
   metadata: ItemMetadata;
   forceEditMode?: boolean;
+  parent_id?: string | null;
 }
 
 export interface ErrorReport {

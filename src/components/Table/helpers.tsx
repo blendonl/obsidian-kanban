@@ -114,7 +114,7 @@ export function useTableData(board: Board, stateManager: StateManager): TableDat
 }
 
 export const baseColumns = (sizing: Record<string, number>): ColumnDef<TableItem, any>[] => [
-  columnHelper.accessor((row) => row.item.data.title, {
+  columnHelper.accessor((row) => row.item.data.titleRaw, {
     id: 'card',
     cell: (info) => {
       const { lane, item, path } = info.row.original;

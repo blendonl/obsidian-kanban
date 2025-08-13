@@ -280,7 +280,7 @@ export const ItemContent = memo(function ItemContent({
         <MarkdownClonedPreviewRenderer
           entityId={item.id}
           className={c('item-markdown')}
-          markdownString={item.data.title}
+          markdownString={item.data.titleRaw}
           searchQuery={searchQuery}
           onPointerUp={onCheckboxContainerClick}
         />
@@ -288,7 +288,7 @@ export const ItemContent = memo(function ItemContent({
         <MarkdownRenderer
           entityId={item.id}
           className={c('item-markdown')}
-          markdownString={item.data.title}
+          markdownString={item.data.titleRaw}
           searchQuery={searchQuery}
           onPointerUp={onCheckboxContainerClick}
         />

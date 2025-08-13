@@ -97,6 +97,26 @@ const ItemInner = memo(function ItemInner({
     [setEditState]
   );
 
+  const onClick: JSX.MouseEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      if (isEditing(editState)) return;
+      if (
+        e.targetNode.instanceOf(HTMLAnchorElement) ||
+        e.targetNode.hasClass('task-list-item-checkbox') ||
+        e.targetNode.hasClass(c('item-menu-button')) ||
+        e.targetNode.closest(`.${c('item-menu-button')}`)
+      ) {
+        return;
+      }
+      
+      const file = item.data.metadata.file;
+      if (file) {
+        stateManager.app.workspace.openLinkText(file.path, stateManager.file.path, e.ctrlKey || e.metaKey);
+      }
+    },
+    [item, stateManager, editState]
+  );
+
   const ignoreAttr = useMemo(() => {
     if (isEditing(editState)) {
       return {
@@ -110,6 +130,7 @@ const ItemInner = memo(function ItemInner({
   return (
     <div
       // eslint-disable-next-line react/no-unknown-property
+      onClick={onClick}
       onDblClick={onDoubleClick}
       onContextMenu={onContextMenu}
       className={c('item-content-wrapper')}

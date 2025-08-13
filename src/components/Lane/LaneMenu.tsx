@@ -164,10 +164,10 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
 
             children.sort((a, b) => {
               if (isAsc) {
-                return b.data.title.localeCompare(a.data.title);
+                return b.data.titleRaw.localeCompare(a.data.titleRaw);
               }
 
-              return a.data.title.localeCompare(b.data.title);
+              return a.data.titleRaw.localeCompare(b.data.titleRaw);
             });
 
             boardModifiers.updateLane(

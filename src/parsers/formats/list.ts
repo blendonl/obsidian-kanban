@@ -92,7 +92,6 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
   const itemData: ItemData = {
     titleRaw: removeBlockId(dedentNewLines(replaceBrs(itemContent))),
     blockId: undefined,
-    title: '',
     titleSearch,
     titleSearchRaw: titleSearch,
     metadata: {
@@ -108,6 +107,7 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
     },
     checked: item.checked,
     checkChar: item.checked ? item.checkChar || ' ' : ' ',
+    parent_id: null,
   };
 
   visit(
@@ -191,10 +191,9 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
     }
   );
 
-  itemData.title = preprocessTitle(stateManager, dedentNewLines(executeDeletion(title)));
 
-  const firstLineEnd = itemData.title.indexOf('\n');
-  const inlineFields = extractInlineFields(itemData.title, true);
+  const firstLineEnd = itemData.titleRaw.indexOf('\n');
+  const inlineFields = extractInlineFields(itemData.titleRaw, true);
 
   if (inlineFields?.length) {
     const inlineMetadata = (itemData.metadata.inlineMetadata = inlineFields.reduce((acc, curr) => {
@@ -208,7 +207,7 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
     const moveMetadata = stateManager.getSetting('inline-metadata-position') !== 'body';
 
     if (moveTaskData || moveMetadata) {
-      let title = itemData.title;
+      let title = itemData.titleRaw;
       for (const item of [...inlineMetadata].reverse()) {
         const isTask = taskFields.has(item.key);
 
@@ -218,7 +217,7 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
         title = title.slice(0, item.start) + title.slice(item.end);
       }
 
-      itemData.title = title;
+      itemData.titleRaw = title;
     }
   }
 
@@ -337,6 +336,10 @@ export function updateItemContent(stateManager: StateManager, oldItem: Item, new
 
   const ast = parseFragment(stateManager, md);
   const itemData = listItemToItemData(stateManager, md, (ast.children[0] as List).children[0]);
+  
+  // Preserve the parent_id from the original item
+  itemData.parent_id = oldItem.data.parent_id;
+  
   const newItem = update(oldItem, {
     data: {
       $set: itemData,

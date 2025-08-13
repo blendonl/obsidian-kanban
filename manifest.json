@@ -1,7 +1,7 @@
 {
   "id": "mkanban",
   "name": "MKanban",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "minAppVersion": "1.0.0",
   "description": "A fork of Kanban with changes to how it parses the markdowns",
   "author": "blendonl",

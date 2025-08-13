@@ -82,7 +82,7 @@ export class KanbanView extends TextFileView implements HoverParent {
         if (this.previewCache.has(item.id)) return;
 
         this.previewQueue.add(async () => {
-          const preview = this.addChild(new BasicMarkdownRenderer(this, item.data.title));
+          const preview = this.addChild(new BasicMarkdownRenderer(this, item.data.titleRaw));
           this.previewCache.set(item.id, preview);
           await preview.renderCapability.promise;
         });

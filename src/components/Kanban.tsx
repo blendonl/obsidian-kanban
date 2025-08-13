@@ -228,7 +228,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
             ])}
             {...html5DragHandlers}
           >
-            {(isLaneFormVisible || boardData?.children?.length === 0) && (
+            {(isLaneFormVisible && boardData?.children?.length === 0) && (
               <LaneForm onNewLane={onNewLane} closeLaneForm={closeLaneForm} />
             )}
             {isSearching && (
