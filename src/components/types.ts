@@ -129,11 +129,13 @@ export const ItemTemplate = {
 export const LaneTemplate = {
   accepts: [DataTypes.Lane],
   type: DataTypes.Lane,
+  children: [] as any[],
 };
 
 export const BoardTemplate = {
   accepts: [] as string[],
   type: DataTypes.Board,
+  children: [] as any[],
 };
 
 export const MetadataSettingTemplate = {

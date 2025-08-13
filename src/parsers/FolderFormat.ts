@@ -49,31 +49,40 @@ export class FolderFormat implements BaseFormat {
   }
 
   mdToBoard(md: string): Board {
+    console.log('[FolderFormat] mdToBoard called, md length:', md.length);
+    // Parse board metadata from board.md first
+    const { frontmatter, settings } = parseMarkdown(this.stateManager, md);
+    
     // For folder format, we need to load asynchronously
     // This is a synchronous interface, so we'll need to handle this differently
     // For now, return a placeholder and trigger async load
     const board = {
       ...BoardTemplate,
-      id: generateInstanceId(),
+      id: this.stateManager.file.path,
       children: [] as any[],
       data: {
-        settings: {},
-        frontmatter: {},
+        settings: settings || {},
+        frontmatter: frontmatter || {},
         errors: [] as any[],
+        archive: [],
+        isSearching: false,
       },
     };
 
+    console.log('[FolderFormat] Starting async board loading');
     // Trigger async loading
     this.loadBoardAsync(md).then(loadedBoard => {
+      console.log('[FolderFormat] Async loading completed, columns:', loadedBoard.children.length);
       // Update the state manager with the loaded board
       if (this.stateManager.state) {
         this.stateManager.setState(loadedBoard, false);
       }
     }).catch(error => {
-      console.error('Failed to load folder structure:', error);
+      console.error('[FolderFormat] Failed to load folder structure:', error);
       this.stateManager.setError(error);
     });
 
+    console.log('[FolderFormat] Returning placeholder board');
     return board as Board;
   }
 
@@ -104,10 +113,19 @@ export class FolderFormat implements BaseFormat {
   }
 
   private async loadBoardAsync(md: string): Promise<Board> {
+    console.log('[FolderFormat] loadBoardAsync called');
     const boardFolder = this.getBoardFolder();
-    if (boardFolder && this.hasFolderStructure(boardFolder)) {
-      return this.loadFromFolderStructure(boardFolder, md);
+    console.log('[FolderFormat] Board folder:', boardFolder?.path || 'null');
+    
+    if (boardFolder) {
+      const hasFolderStructure = this.hasFolderStructure(boardFolder);
+      console.log('[FolderFormat] Has folder structure:', hasFolderStructure);
+      if (hasFolderStructure) {
+        console.log('[FolderFormat] Loading from folder structure');
+        return this.loadFromFolderStructure(boardFolder, md);
+      }
     }
+    console.log('[FolderFormat] No folder structure found');
     throw new Error('No folder structure found for board');
   }
 
@@ -128,28 +146,39 @@ export class FolderFormat implements BaseFormat {
   }
 
   private hasFolderStructure(boardFolder: TFolder): boolean {
+    console.log('[FolderFormat] Checking folder structure for:', boardFolder.path);
     // Check if there are any column folders (folders containing .md files)
     const children = boardFolder.children;
+    console.log('[FolderFormat] Board folder children count:', children.length);
     
     for (const child of children) {
+      console.log('[FolderFormat] Examining child:', child.path, 'type:', child instanceof TFolder ? 'folder' : 'file');
       if (child instanceof TFolder) {
         // Check if this folder contains any .md files (potential items)
-        const hasMarkdownFiles = child.children.some(f => 
-          f instanceof TFile && f.extension === 'md'
-        );
+        const hasMarkdownFiles = child.children.some(f => {
+          const isMarkdown = f instanceof TFile && f.extension === 'md';
+          if (isMarkdown) {
+            console.log('[FolderFormat] Found markdown file:', f.path);
+          }
+          return isMarkdown;
+        });
         
+        console.log('[FolderFormat] Folder', child.name, 'has markdown files:', hasMarkdownFiles);
         if (hasMarkdownFiles) {
           return true;
         }
       }
     }
     
+    console.log('[FolderFormat] No folder structure found');
     return false;
   }
 
   private async loadFromFolderStructure(boardFolder: TFolder, boardMd: string): Promise<Board> {
+    console.log('[FolderFormat] loadFromFolderStructure called');
     // Parse board metadata from board.md
     const { frontmatter, settings } = parseMarkdown(this.stateManager, boardMd);
+    console.log('[FolderFormat] Parsed frontmatter and settings');
     
     const board = {
       ...BoardTemplate,
@@ -170,10 +199,14 @@ export class FolderFormat implements BaseFormat {
       return child.children.some(f => f instanceof TFile && f.extension === 'md');
     });
 
+    console.log('[FolderFormat] Found column folders:', columnFolders.map(f => f.name));
+
     // Load each column
     for (const columnFolder of columnFolders) {
+      console.log('[FolderFormat] Loading column:', columnFolder.name);
       const lane = await this.loadColumn(columnFolder);
       if (lane) {
+        console.log('[FolderFormat] Column loaded with items:', lane.children.length);
         board.children.push(lane);
       }
     }
@@ -181,10 +214,12 @@ export class FolderFormat implements BaseFormat {
     // Sort columns by folder name
     board.children.sort((a: Lane, b: Lane) => a.data.title.localeCompare(b.data.title));
 
+    console.log('[FolderFormat] Board loaded with columns:', board.children.length);
     return hydrateBoard(this.stateManager, board as Board);
   }
 
   private async loadColumn(columnFolder: TFolder): Promise<Lane | null> {
+    console.log('[FolderFormat] Loading column:', columnFolder.name);
     // Column title is the folder name
     const columnTitle = columnFolder.name;
 
@@ -202,21 +237,26 @@ export class FolderFormat implements BaseFormat {
       f instanceof TFile && f.extension === 'md'
     );
 
+    console.log('[FolderFormat] Found item files in column:', itemFiles.map(f => f.name));
+
     for (const itemFile of itemFiles) {
       try {
+        console.log('[FolderFormat] Loading item file:', itemFile.path);
         const content = await this.stateManager.app.vault.read(itemFile);
         const item = await this.loadItemFromFile(itemFile, content);
         if (item) {
+          console.log('[FolderFormat] Item loaded:', item.data.title);
           lane.children.push(item);
         }
       } catch (error) {
-        console.warn(`Failed to load item file: ${itemFile.path}`, error);
+        console.warn(`[FolderFormat] Failed to load item file: ${itemFile.path}`, error);
       }
     }
 
     // Sort items by filename or add ordering metadata
     lane.children.sort((a: Item, b: Item) => a.data.title.localeCompare(b.data.title));
 
+    console.log('[FolderFormat] Column loaded with', lane.children.length, 'items');
     return lane as Lane;
   }
 
@@ -247,9 +287,12 @@ export class FolderFormat implements BaseFormat {
         id: generateInstanceId(),
         children: [] as any[],
         data: {
+          checked: isCompleted,
           checkChar: isCompleted ? 'x' : ' ',
           title: title,
           titleRaw: title,
+          titleSearch: title.toLowerCase(),
+          titleSearchRaw: title.toLowerCase(),
           metadata: {
             ...frontmatter,
             file: itemFile,

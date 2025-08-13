@@ -57,7 +57,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
   const [isSearching, setIsSearching] = useState<boolean>(false);
 
   const [isLaneFormVisible, setIsLaneFormVisible] = useState<boolean>(
-    boardData?.children.length === 0
+    boardData?.children?.length === 0
   );
 
   const filePath = stateManager.file.path;
@@ -67,16 +67,16 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
   const boardView = view.useViewState(frontmatterKey);
 
   const closeLaneForm = useCallback(() => {
-    if (boardData?.children.length > 0) {
+    if (boardData?.children?.length > 0) {
       setIsLaneFormVisible(false);
     }
-  }, [boardData?.children.length]);
+  }, [boardData?.children?.length]);
 
   useEffect(() => {
-    if (boardData?.children.length === 0 && !stateManager.hasError()) {
+    if (boardData?.children?.length === 0 && !stateManager.hasError()) {
       setIsLaneFormVisible(true);
     }
-  }, [boardData?.children.length, stateManager]);
+  }, [boardData?.children?.length, stateManager]);
 
   const onNewLane = useCallback(() => {
     rootRef.current?.win.setTimeout(() => {
@@ -150,7 +150,10 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
       return;
     }
 
-    if (typeof maxArchiveLength === 'number' && boardData?.data.archive.length > maxArchiveLength) {
+    if (
+      typeof maxArchiveLength === 'number' &&
+      boardData?.data.archive?.length > maxArchiveLength
+    ) {
       stateManager.setState((board) =>
         update(board, {
           data: {
@@ -161,7 +164,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
         })
       );
     }
-  }, [boardData?.data.archive.length, maxArchiveLength]);
+  }, [boardData?.data.archive?.length, maxArchiveLength]);
 
   const boardModifiers = useMemo(() => {
     return getBoardModifiers(view, stateManager);
@@ -185,7 +188,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
       </div>
     );
 
-  if (boardData.data.errors.length > 0) {
+  if (boardData.data.errors?.length > 0) {
     return (
       <div>
         <div>Error:</div>
@@ -225,7 +228,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
             ])}
             {...html5DragHandlers}
           >
-            {(isLaneFormVisible || boardData.children.length === 0) && (
+            {(isLaneFormVisible || boardData?.children?.length === 0) && (
               <LaneForm onNewLane={onNewLane} closeLaneForm={closeLaneForm} />
             )}
             {isSearching && (
@@ -282,7 +285,7 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
                     <SortPlaceholder
                       accepts={boardAccepts}
                       className={c('lane-placeholder')}
-                      index={boardData.children.length}
+                      index={boardData.children?.length}
                     />
                   </Sortable>
                 </div>

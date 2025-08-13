@@ -96,27 +96,34 @@ export default class KanbanPlugin extends Plugin {
   MarkdownEditor: any;
 
   async onload() {
+    console.log('[KanbanPlugin] Starting onload');
     await this.loadSettings();
+    console.log('[KanbanPlugin] Settings loaded:', Object.keys(this.settings));
 
     this.MarkdownEditor = getEditorClass(this.app);
+    console.log('[KanbanPlugin] MarkdownEditor initialized');
 
     this.registerEditorSuggest(new TimeSuggest(this.app, this));
     this.registerEditorSuggest(new DateSuggest(this.app, this));
+    console.log('[KanbanPlugin] Editor suggests registered');
 
     this.registerEvent(
       this.app.workspace.on('window-open', (_: any, win: Window) => {
+        console.log('[KanbanPlugin] Window opened, mounting');
         this.mount(win);
       })
     );
 
     this.registerEvent(
       this.app.workspace.on('window-close', (_: any, win: Window) => {
+        console.log('[KanbanPlugin] Window closed, unmounting');
         this.unmount(win);
       })
     );
 
     this.settingsTab = new KanbanSettingsTab(this, {
       onSettingsChange: async (newSettings) => {
+        console.log('[KanbanPlugin] Settings changed');
         this.settings = newSettings;
         await this.saveSettings();
 
@@ -128,25 +135,54 @@ export default class KanbanPlugin extends Plugin {
     });
 
     this.addSettingTab(this.settingsTab);
+    console.log('[KanbanPlugin] Settings tab added');
 
-    this.registerView(kanbanViewType, (leaf) => new KanbanView(leaf, this));
+    this.registerView(kanbanViewType, (leaf) => {
+      console.log('[KanbanPlugin] Creating new KanbanView for leaf:', (leaf as any).id);
+      return new KanbanView(leaf, this);
+    });
+    console.log('[KanbanPlugin] View type registered:', kanbanViewType);
+    
     this.registerMonkeyPatches();
+    console.log('[KanbanPlugin] Monkey patches registered');
+    
     this.registerCommands();
+    console.log('[KanbanPlugin] Commands registered');
+    
     this.registerEvents();
+    console.log('[KanbanPlugin] Events registered');
 
     // Mount an empty component to start; views will be added as we go
+    console.log('[KanbanPlugin] Mounting main window');
     this.mount(window);
 
     (this.app.workspace as any).floatingSplit?.children?.forEach((c: any) => {
+      console.log('[KanbanPlugin] Mounting floating window');
       this.mount(c.win);
     });
 
     this.registerDomEvent(window, 'keydown', this.handleShift);
     this.registerDomEvent(window, 'keyup', this.handleShift);
+    console.log('[KanbanPlugin] DOM events registered');
+
+    // Debug logging ribbon icon
+    this.addRibbonIcon('dice', 'Debug Kanban Log', () => {
+      console.log('=== KANBAN DEBUG LOG ===');
+      console.log('Plugin loaded:', this._loaded);
+      console.log('State managers count:', this.stateManagers.size);
+      console.log('Window registry count:', this.windowRegistry.size);
+      console.log('Settings:', this.settings);
+      console.log('Active views:', this.app.workspace.getLeavesOfType(kanbanViewType).length);
+      new Notice('Check console for Kanban debug info');
+    });
 
     this.addRibbonIcon(kanbanIcon, t('Create new board'), () => {
+      console.log('[KanbanPlugin] Create new board clicked');
       this.newKanban();
     });
+
+    this._loaded = true;
+    console.log('[KanbanPlugin] onload completed successfully');
   }
 
   handleShift = (e: KeyboardEvent) => {
@@ -202,7 +238,12 @@ export default class KanbanPlugin extends Plugin {
       reg?.viewStateReceivers.push(setState);
 
       return () => {
-        reg?.viewStateReceivers.remove(setState);
+        if (reg) {
+          const index = reg.viewStateReceivers.indexOf(setState);
+          if (index > -1) {
+            reg.viewStateReceivers.splice(index, 1);
+          }
+        }
       };
     }, [win]);
 
@@ -210,32 +251,45 @@ export default class KanbanPlugin extends Plugin {
   }
 
   addView(view: KanbanView, data: string, shouldParseData: boolean) {
+    console.log('[KanbanPlugin] addView called for file:', view.file.path, 'shouldParseData:', shouldParseData, 'dataLength:', data.length);
     const win = view.getWindow();
     const reg = this.windowRegistry.get(win);
 
-    if (!reg) return;
+    if (!reg) {
+      console.log('[KanbanPlugin] No window registry found, returning');
+      return;
+    }
     if (!reg.viewMap.has(view.id)) {
       reg.viewMap.set(view.id, view);
+      console.log('[KanbanPlugin] Added view to registry, id:', view.id);
     }
 
     const file = view.file;
 
     if (this.stateManagers.has(file)) {
+      console.log('[KanbanPlugin] Using existing StateManager for file:', file.path);
       this.stateManagers.get(file).registerView(view, data, shouldParseData);
     } else {
+      console.log('[KanbanPlugin] Creating new StateManager for file:', file.path);
       this.stateManagers.set(
         file,
         new StateManager(
           this.app,
           view,
           data,
-          () => this.stateManagers.delete(file),
+          () => {
+            console.log('[KanbanPlugin] StateManager cleanup for file:', file.path);
+            this.stateManagers.delete(file);
+          },
           () => this.settings
         )
       );
+      console.log('[KanbanPlugin] StateManager created and added to map');
     }
 
+    console.log('[KanbanPlugin] Notifying view state receivers');
     reg.viewStateReceivers.forEach((fn) => fn(this.getKanbanViews(win)));
+    console.log('[KanbanPlugin] addView completed');
   }
 
   removeView(view: KanbanView) {

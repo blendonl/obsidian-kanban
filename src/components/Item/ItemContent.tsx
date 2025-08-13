@@ -137,7 +137,7 @@ export function Tags({
   const search = useContext(SearchContext);
   const shouldShow = stateManager.useSetting('move-tags') || alwaysShow;
 
-  if (!tags.length || !shouldShow) return null;
+  if (!tags?.length || !shouldShow) return null;
 
   return (
     <div className={c('item-tags')}>

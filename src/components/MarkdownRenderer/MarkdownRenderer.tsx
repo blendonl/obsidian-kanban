@@ -86,7 +86,7 @@ export class BasicMarkdownRenderer extends Component {
 
   // eslint-disable-next-line react/require-render-return
   async render() {
-    this.containerEl.empty();
+    this.containerEl?.empty();
 
     await ObsidianRenderer.render(
       this.view.app,
@@ -295,8 +295,8 @@ export const MarkdownRenderer = memo(function MarkdownPreviewRenderer({
     const preview = (renderer.current = view.addChild(markdownRenderer));
     if (entityId) view.previewCache.set(entityId, preview);
 
-    elRef.current.empty();
-    elRef.current.append(preview.containerEl);
+    elRef.current?.empty();
+    elRef.current?.append(preview.containerEl);
     colorizeTags(elRef.current, getTagColor);
     colorizeDates(elRef.current, getDateColor);
 

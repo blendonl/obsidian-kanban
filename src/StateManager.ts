@@ -35,37 +35,56 @@ export class StateManager {
     onEmpty: () => void,
     getGlobalSettings: () => KanbanSettings
   ) {
+    console.log('[StateManager] Constructor called for file:', initialView.file.path);
     this.app = app;
     this.file = initialView.file;
     this.onEmpty = onEmpty;
     this.getGlobalSettings = getGlobalSettings;
     this.parser = this.detectFormat();
+    console.log('[StateManager] Format detected:', this.parser.constructor.name);
 
     this.registerView(initialView, initialData, true);
+    console.log('[StateManager] Constructor completed');
   }
 
   private detectFormat(): BaseFormat {
-    // Check if we have a folder structure by looking at the parent folder
+    console.log('[StateManager] Detecting format for file:', this.file.path);
+    console.log('[StateManager] File name:', this.file.name, 'Parent folder:', this.file.parent?.name);
+    
+    // Check if we have a folder structure by looking for folders containing .md files
     const boardFolder = this.file.parent;
     if (boardFolder) {
-      // Look for folders containing .md files (indicating folder-based columns)
-      const hasFolderStructure = boardFolder.children.some(child => {
-        // Skip the board file itself and only look at folders
+      console.log('[StateManager] Checking board folder:', boardFolder.path);
+      console.log('[StateManager] Board folder children:', boardFolder.children.map(c => c.name));
+      
+      // Look for any folders that contain .md files (potential column folders with tasks)
+      const hasColumnFolders = boardFolder.children.some(child => {
         if (!(child instanceof TFolder) || child.path === this.file.path) {
           return false;
         }
         
-        // Check if this folder contains any .md files
-        return child.children.some(file => 
-          file instanceof TFile && file.extension === 'md'
-        );
+        console.log('[StateManager] Checking folder:', child.name, 'children count:', child.children.length);
+        
+        // Check if this folder contains .md files directly (tasks)
+        const hasMarkdownFiles = child.children.some(f => {
+          const isMarkdown = f instanceof TFile && f.extension === 'md';
+          if (isMarkdown) {
+            console.log('[StateManager] Found markdown file in', child.name + ':', f.name);
+          }
+          return isMarkdown;
+        });
+        
+        return hasMarkdownFiles;
       });
       
-      if (hasFolderStructure) {
+      console.log('[StateManager] Has column folders with tasks:', hasColumnFolders);
+      if (hasColumnFolders) {
+        console.log('[StateManager] Using FolderFormat');
         return new FolderFormat(this);
       }
     }
     
+    console.log('[StateManager] Using ListFormat (default)');
     // Default to list format
     return new ListFormat(this);
   }
@@ -79,20 +98,30 @@ export class StateManager {
   }
 
   async registerView(view: KanbanView, data: string, shouldParseData: boolean) {
+    console.log('[StateManager] registerView called, shouldParseData:', shouldParseData, 'dataLength:', data.length);
     if (!this.viewSet.has(view)) {
       this.viewSet.add(view);
+      console.log('[StateManager] View added to set, total views:', this.viewSet.size);
     }
 
     // This helps delay blocking the UI until the the loading indicator is displayed
     await new Promise((res) => activeWindow.setTimeout(res, 10));
 
-    if (shouldParseData) {
-      await this.newBoard(view, data);
-    } else {
-      await view.prerender(this.state);
-    }
+    try {
+      if (shouldParseData) {
+        console.log('[StateManager] Parsing new board data');
+        await this.newBoard(view, data);
+      } else {
+        console.log('[StateManager] Prerendering existing state');
+        await view.prerender(this.state);
+      }
 
-    view.populateViewState(this.state.data.settings);
+      view.populateViewState(this.state.data.settings);
+      console.log('[StateManager] registerView completed successfully');
+    } catch (e) {
+      console.error('[StateManager] Error in registerView:', e);
+      throw e;
+    }
   }
 
   unregisterView(view: KanbanView) {
@@ -114,11 +143,20 @@ export class StateManager {
   }
 
   async newBoard(view: KanbanView, md: string) {
+    console.log('[StateManager] newBoard called, md length:', md.length);
     try {
+      console.log('[StateManager] Parsing board from markdown');
       const board = this.getParsedBoard(md);
+      console.log('[StateManager] Board parsed, columns:', board.children.length, 'errors:', board.data.errors.length);
+      
+      console.log('[StateManager] Prerendering board');
       await view.prerender(board);
+      
+      console.log('[StateManager] Setting state');
       this.setState(board, false);
+      console.log('[StateManager] newBoard completed successfully');
     } catch (e) {
+      console.error('[StateManager] Error in newBoard:', e);
       this.setError(e);
     }
   }
@@ -163,12 +201,14 @@ export class StateManager {
   }
 
   setState(state: Board | ((board: Board) => Board), shouldSave: boolean = true) {
+    console.log('[StateManager] setState called, shouldSave:', shouldSave, 'receivers count:', this.stateReceivers.length);
     try {
       const oldSettings = this.state?.data.settings;
       const newState = typeof state === 'function' ? state(this.state) : state;
       const newSettings = newState?.data.settings;
 
       if (oldSettings && newSettings && shouldRefreshBoard(oldSettings, newSettings)) {
+        console.log('[StateManager] Settings changed, reparsing board');
         this.state = update(this.state, {
           data: {
             settings: {
@@ -179,42 +219,62 @@ export class StateManager {
         this.compileSettings();
         this.state = this.parser.reparseBoard();
       } else {
+        console.log('[StateManager] Using new state directly');
         this.state = newState;
         this.compileSettings();
       }
 
+      console.log('[StateManager] Updating views, view count:', this.viewSet.size);
       this.viewSet.forEach((view) => {
         view.initHeaderButtons();
         view.validatePreviewCache(newState);
       });
 
       if (shouldSave) {
+        console.log('[StateManager] Saving to disk');
         this.saveToDisk();
       }
 
+      console.log('[StateManager] Notifying state receivers');
       this.stateReceivers.forEach((receiver) => receiver(this.state));
 
       if (oldSettings !== newSettings && newSettings) {
+        console.log('[StateManager] Settings changed, notifying setting listeners');
         this.settingsNotifiers.forEach((notifiers, key) => {
           if ((!oldSettings && newSettings) || oldSettings[key] !== newSettings[key]) {
             notifiers.forEach((fn) => fn());
           }
         });
       }
+      console.log('[StateManager] setState completed successfully');
     } catch (e) {
-      console.error(e);
+      console.error('[StateManager] Error in setState:', e);
       this.setError(e);
     }
   }
 
   useState(): Board {
-    const [state, setState] = useState(this.state);
+    console.log('[StateManager] useState hook called, this.state:', this.state ? 'defined' : 'undefined');
+    const [state, setState] = useState(this.state || null);
 
     useEffect(() => {
-      this.stateReceivers.push((state) => setState(state));
-      setState(this.state);
+      console.log('[StateManager] useState useEffect registering state receiver');
+      const stateReceiver = (state: Board) => {
+        console.log('[StateManager] State receiver called, updating state');
+        if (state) {
+          setState(state);
+        }
+      };
+      this.stateReceivers.push(stateReceiver);
+      if (this.state) {
+        setState(this.state);
+      }
       return () => {
-        this.stateReceivers.remove(setState);
+        console.log('[StateManager] useState useEffect cleanup');
+        const index = this.stateReceivers.indexOf(stateReceiver);
+        if (index > -1) {
+          this.stateReceivers.splice(index, 1);
+        }
       };
     }, []);
 
@@ -234,7 +294,13 @@ export class StateManager {
       }
 
       return () => {
-        this.settingsNotifiers.get(key).remove(receiver);
+        const notifiers = this.settingsNotifiers.get(key);
+        if (notifiers) {
+          const index = notifiers.indexOf(receiver);
+          if (index > -1) {
+            notifiers.splice(index, 1);
+          }
+        }
       };
     }, []);
 
@@ -329,6 +395,7 @@ export class StateManager {
   };
 
   getParsedBoard(data: string) {
+    console.log('[StateManager] getParsedBoard called, data length:', data.length);
     const trimmedContent = data.trim();
 
     let board: Board = {
@@ -346,10 +413,14 @@ export class StateManager {
 
     try {
       if (trimmedContent) {
+        console.log('[StateManager] Parsing non-empty content with parser:', this.parser.constructor.name);
         board = this.parser.mdToBoard(trimmedContent);
+        console.log('[StateManager] Parsing successful, board children:', board.children.length);
+      } else {
+        console.log('[StateManager] Empty content, using default board');
       }
     } catch (e) {
-      console.error(e);
+      console.error('[StateManager] Error parsing board:', e);
 
       board = update(board, {
         data: {

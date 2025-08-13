@@ -295,7 +295,7 @@ export function getItemClassModifiers(item: Item) {
     classModifiers.push('is-complete');
   }
 
-  for (const tag of item.data.metadata.tags) {
+  for (const tag of item.data.metadata.tags ?? []) {
     classModifiers.push(`has-tag-${tag.slice(1)}`);
   }
 
