@@ -1,5 +1,5 @@
 import update from 'immutability-helper';
-import { App, TFile, moment } from 'obsidian';
+import { App, TFile, TFolder, moment } from 'obsidian';
 import { useEffect, useState } from 'preact/compat';
 
 import { KanbanView } from './KanbanView';
@@ -7,6 +7,7 @@ import { KanbanSettings, SettingRetrievers } from './Settings';
 import { getDefaultDateFormat, getDefaultTimeFormat } from './components/helpers';
 import { Board, BoardTemplate, Item } from './components/types';
 import { ListFormat } from './parsers/List';
+import { FolderFormat } from './parsers/FolderFormat';
 import { BaseFormat, frontmatterKey, shouldRefreshBoard } from './parsers/common';
 import { getTaskStatusDone } from './parsers/helpers/inlineMetadata';
 import { defaultDateTrigger, defaultMetadataPosition, defaultTimeTrigger } from './settingHelpers';
@@ -38,9 +39,35 @@ export class StateManager {
     this.file = initialView.file;
     this.onEmpty = onEmpty;
     this.getGlobalSettings = getGlobalSettings;
-    this.parser = new ListFormat(this);
+    this.parser = this.detectFormat();
 
     this.registerView(initialView, initialData, true);
+  }
+
+  private detectFormat(): BaseFormat {
+    // Check if we have a folder structure by looking at the parent folder
+    const boardFolder = this.file.parent;
+    if (boardFolder) {
+      // Look for folders containing .md files (indicating folder-based columns)
+      const hasFolderStructure = boardFolder.children.some(child => {
+        // Skip the board file itself and only look at folders
+        if (!(child instanceof TFolder) || child.path === this.file.path) {
+          return false;
+        }
+        
+        // Check if this folder contains any .md files
+        return child.children.some(file => 
+          file instanceof TFile && file.extension === 'md'
+        );
+      });
+      
+      if (hasFolderStructure) {
+        return new FolderFormat(this);
+      }
+    }
+    
+    // Default to list format
+    return new ListFormat(this);
   }
 
   getAView(): KanbanView {
