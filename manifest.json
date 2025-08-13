@@ -1,11 +1,11 @@
 {
-  "id": "obsidian-mkanban",
+  "id": "mkanban",
   "name": "MKanban",
   "version": "0.0.3",
   "minAppVersion": "1.0.0",
-  "description": "A fork of Obsidian Kanban with changes to how it parses the markdowns",
+  "description": "A fork of Kanban with changes to how it parses the markdowns",
   "author": "blendonl",
-  "authorUrl": "https://github.com/blendonl/obsidian-kanban",
+  "authorUrl": "https://github.com/blendonl",
   "helpUrl": "https://publish.obsidian.md/kanban/Obsidian+Kanban+Plugin",
   "isDesktopOnly": false
 }
